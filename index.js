@@ -6,7 +6,11 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
 
 //middleware
-app.use(cors());
+//app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173', // or whatever your frontend port is
+  credentials: true
+}));
 app.use(express.json());
 
 
@@ -28,6 +32,8 @@ async function run() {
     await client.connect();
 
     const jobsCollection = client.db('careerCode').collection('jobs');
+
+    const applicationsCollection = client.db('careerCode').collection('applications');
     //jobs api
     app.get('/jobs', async (req, res)=>{
       const cursor = jobsCollection.find();
@@ -40,6 +46,14 @@ async function run() {
       const id = req.params.id;
       const query = {_id: new ObjectId(id)}
       const result = await jobsCollection.findOne(query);
+      res.send(result);
+    })
+
+    //job applications related appi
+    app.post('/applications', async(req, res)=>{
+      const application = req.body;
+      console.log('Received:', application); // add this line
+      const result = await applicationsCollection.insertOne(application);
       res.send(result);
     })
 
