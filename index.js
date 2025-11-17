@@ -49,6 +49,17 @@ async function run() {
       res.send(result);
     })
 
+    //job applicant item show..how many items apply
+    app.get('/applications', async(req, res)=>{
+      const email = req.query.email;
+
+      const query={
+        applicant: email
+      }
+      const result = await applicationsCollection.find(query).toArray()
+      res.send(result);
+    })
+
     //job applications related appi
     app.post('/applications', async(req, res)=>{
       const application = req.body;
