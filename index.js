@@ -49,6 +49,13 @@ async function run() {
       res.send(result);
     })
 
+    //hr post any data to show in data base
+    app.post('/jobs', async(req, res)=>{
+      const newJob = req.body;
+      const result = await jobsCollection.insertOne(newJob);
+      res.send(result);
+    })
+
     //job applicant item show..how many items apply
     app.get('/applications', async(req, res)=>{
       const email = req.query.email;
