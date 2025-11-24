@@ -36,7 +36,14 @@ async function run() {
     const applicationsCollection = client.db('careerCode').collection('applications');
     //jobs api
     app.get('/jobs', async (req, res)=>{
-      const cursor = jobsCollection.find();
+
+      const email = req.query.email;
+      const query = {};
+      if(email){
+        query.hr_email = email;
+      }
+
+      const cursor = jobsCollection.find(query);
       const result = await cursor.toArray();
       res.send(result);
     })
@@ -55,6 +62,12 @@ async function run() {
       const result = await jobsCollection.insertOne(newJob);
       res.send(result);
     })
+
+    //could be done
+    // app.get('/jobsByEmailAddress', async(req, res)=>{
+    //   const email = req.query.email;
+    //   const query = {hr_email: email}
+    // })
 
     //job applicant item show..how many items apply
     app.get('/applications', async(req, res)=>{
