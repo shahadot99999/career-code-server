@@ -2,6 +2,7 @@ const express = require('express')
 const cors = require('cors')
 const app = express();
 const jwt = require('jsonwebtoken');
+const cookieParser= require('cookie-parser');
 const port = process.env.PORT || 3000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
@@ -38,11 +39,19 @@ async function run() {
     
     //jwt token related api
     app.post('/jwt', async(req, res)=>{
-      const { email } = req.body;
-      const user = { email };
+      // const { email } = req.body;
+      // const user = { email };
+      const userData = req.body;
       //const token = jwt.sign(user, 'secret', { expiresIn: '1h'});
-       const token = jwt.sign(user, process.env.JWT_ACCESS_SECRET, { expiresIn: '1h'});
-      res.send({token})
+       const token = jwt.sign(userData, process.env.JWT_ACCESS_SECRET, { expiresIn: '1d'});
+
+       //set token in the cookies
+       res.cookie('token', token,{
+        httpOnly: true,
+        secure: false
+       })
+      //res.send({token})
+      res.send({success : true})
     })
 
    
@@ -105,6 +114,8 @@ async function run() {
     app.get('/applications', async(req, res)=>{
       const email = req.query.email;
 
+      console.log('inside applications api', req.cookies);
+      
       const query={
         applicant: email
       }
