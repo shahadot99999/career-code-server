@@ -24,8 +24,22 @@ const logger = (req, res, next)=>{
 const verifyToken = (req, res, next)=>{
   const token = req?.cookies?.token;
   console.log('cookie in the middleware', token);
+
+  if(!token){
+    return res.status(401).send({message: 'unauthorized access'})
+  }
+
+  //verfiy token
+  jwt.verify(token, process.env.JWT_ACCESS_SECRET, (err, decoded)=>{
+    if(err){
+      return res.status(401).send({message: 'unauthorized access'})
+    }
+    req.decoded= decoded;
+    next();
+    //console.log(decoded);
+  })
   
-  next();
+  
 }
 
 
@@ -125,9 +139,13 @@ async function run() {
 
     //job applicant item show..how many items apply
     app.get('/applications', logger, verifyToken, async(req, res)=>{
-      const email = req.query.email;
+      const email = req.query.email;      
 
       //console.log('inside applications api', req.cookies);
+
+      if(email !== req.decoded.email){
+        return res.status(403).send({message: 'forbidden access'})
+      }
       
       const query={
         applicant: email
