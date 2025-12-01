@@ -14,6 +14,19 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+app.use(cookieParser());
+
+const logger = (req, res, next)=>{
+  console.log('Inside the logger middleware');
+  next();
+}
+
+const verifyToken = (req, res, next)=>{
+  const token = req?.cookies?.token;
+  console.log('cookie in the middleware', token);
+  
+  next();
+}
 
 
 //Mongodb
@@ -111,10 +124,10 @@ async function run() {
     // })
 
     //job applicant item show..how many items apply
-    app.get('/applications', async(req, res)=>{
+    app.get('/applications', logger, verifyToken, async(req, res)=>{
       const email = req.query.email;
 
-      console.log('inside applications api', req.cookies);
+      //console.log('inside applications api', req.cookies);
       
       const query={
         applicant: email
