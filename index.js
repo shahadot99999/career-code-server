@@ -16,13 +16,13 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-// var admin = require("firebase-admin");
+var admin = require("firebase-admin");
 
-// var serviceAccount = require("./firebase-admin-key.json");
+var serviceAccount = require("./firebase-admin-key.json");
 
-// admin.initializeApp({
-//   credential: admin.credential.cert(serviceAccount)
-// });
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount)
+});
 
 
 const logger = (req, res, next)=>{
@@ -52,17 +52,17 @@ const verifyToken = (req, res, next)=>{
 }
 
 
-// const verifyFirebaseToken = async(req, res, next)=>{
-//   const authHeader = req.headers?.authorization;
-//   const token = authHeader.split(' ')[1];
-//   if(!token){
-//     return res.status(401).send({message: 'unauthorized access'})
-//   }
-//   const userInfo = await admin.auth().verifyIdToken(token)
-//   //console.log('Inside the token', userInfo);
-//   req.tokenEmail = userInfo.email;
-//   next();
-// }
+const verifyFirebaseToken = async(req, res, next)=>{
+  const authHeader = req.headers?.authorization;
+  const token = authHeader.split(' ')[1];
+  if(!token){
+    return res.status(401).send({message: 'unauthorized access'})
+  }
+  const userInfo = await admin.auth().verifyIdToken(token)
+  //console.log('Inside the token', userInfo);
+  req.tokenEmail = userInfo.email;
+  next();
+}
 
 
 //Mongodb
