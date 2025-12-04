@@ -26,13 +26,13 @@ admin.initializeApp({
 
 
 const logger = (req, res, next)=>{
-  console.log('Inside the logger middleware');
+  //console.log('Inside the logger middleware');
   next();
 }
 
 const verifyToken = (req, res, next)=>{
   const token = req?.cookies?.token;
-  console.log('cookie in the middleware', token);
+  //console.log('cookie in the middleware', token);
 
   if(!token){
     return res.status(401).send({message: 'unauthorized access'})
@@ -53,15 +53,32 @@ const verifyToken = (req, res, next)=>{
 
 
 const verifyFirebaseToken = async(req, res, next)=>{
+  // const authHeader = req.headers?.authorization;
+  // const token = authHeader.split(' ')[1];
+  // if(!token){
+  //   return res.status(401).send({message: 'unauthorized access'})
+  // }
+  // const userInfo = await admin.auth().verifyIdToken(token)
+  // //console.log('Inside the token', userInfo);
+  // req.tokenEmail = userInfo.email;
+  // next();
   const authHeader = req.headers?.authorization;
-  const token = authHeader.split(' ')[1];
-  if(!token){
+  if(!authHeader || !authHeader.startsWith('Bearer')){
     return res.status(401).send({message: 'unauthorized access'})
   }
-  const userInfo = await admin.auth().verifyIdToken(token)
-  //console.log('Inside the token', userInfo);
-  req.tokenEmail = userInfo.email;
-  next();
+  const token = authHeader.split(' ')[1];
+  
+  try{
+     const decoded = await admin.auth().verifyIdToken(token);
+     //console.log('decoded token', decoded);
+     req.decoded= decoded;
+     next();
+  }
+  catch(error){
+    return res.status(401).send({ message: 'unauthorized access'})
+  }
+  
+  
 }
 
 
@@ -76,6 +93,14 @@ const client = new MongoClient(uri, {
     deprecationErrors: true,
   }
 });
+
+const verifyTokenEmail=(req, res, next)=>{
+   if(req.query.email !== req.decoded.email){
+        return res.status(403).send({message: 'forbidden access'})
+      }
+      next();
+
+}
 
 async function run() {
   try {
@@ -120,8 +145,19 @@ async function run() {
       res.send(result);
     })
 
-    app.get('/jobs/applications', async(req, res)=>{
+    app.get('/jobs/applications', verifyFirebaseToken, verifyTokenEmail, async(req, res)=>{
       const email = req.query.email;
+
+      //something add
+      // if(req.tokenEmail !=email){
+      //   return res.status(403).send({message: 'forbidden access'})
+      // }
+
+      //something new add
+      // if(email !== req.decoded.email){
+      //   return res.status(403).send({message: 'forbidden access'})
+      // }
+
       const query= { hr_email: email };
       const jobs = await jobsCollection.find(query).toArray();
 
@@ -160,17 +196,20 @@ async function run() {
     // })
 
     //job applicant item show..how many items apply
-    app.get('/applications', logger, verifyToken, verifyFirebaseToken, async(req, res)=>{
-      const email = req.query.email;      
+    //app.get('/applications', logger, verifyToken, verifyFirebaseToken, verifyTokenEmail, async(req, res)=>{
+    app.get('/applications', logger,  verifyFirebaseToken, verifyTokenEmail, async(req, res)=>{
+      const email = req.query.email;    
+      
+      //console.log('req headers', req.headers);
 
       //console.log('inside applications api', req.cookies);
-      if(req.tokenEmail !=email){
-        return res.status(403).send({message: 'forbidden access'})
-      }
+      // if(req.tokenEmail !=email){
+      //   return res.status(403).send({message: 'forbidden access'})
+      // }
 
-      if(email !== req.decoded.email){
-        return res.status(403).send({message: 'forbidden access'})
-      }
+      // if(email !== req.decoded.email){
+      //   return res.status(403).send({message: 'forbidden access'})
+      // }
       
       const query={
         applicant: email
