@@ -1,5 +1,4 @@
-//just use
-module.exports = app;
+
 const express = require('express')
 const cors = require('cors')
 const app = express();
@@ -18,11 +17,12 @@ require('dotenv').config()
 //   credentials: true
 // }));
 
-//just apply
+// Middleware - Update CORS for Vercel
 app.use(cors({
   origin: [
     'http://localhost:5173',
-    'https://career-code-server-green-pi.vercel.app'
+    'https://career-code-client.vercel.app', // Add your frontend Vercel URL
+    // Add other origins as needed
   ],
   credentials: true
 }));
@@ -291,12 +291,34 @@ app.get('/', (req, res) => {
   res.send('Career Code is Cooking')
 })
 
-// Add this in index.js before app.listen()
+// Health check route - should work on Vercel
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
+});
+
+// Test route to verify routing
+app.get('/test', (req, res) => {
+  res.json({ message: 'Test route works!' });
 });
 
 //just hide for few times.
 // app.listen(port, () => {
 //   console.log(`Career Code Server is running on port ${port}`)
 // })
+
+// ========== IMPORTANT: For Vercel deployment ==========
+// Export the app for Vercel
+module.exports = app;
+
+// For local development
+if (require.main === module) {
+  app.listen(port, () => {
+    console.log(`Career Code Server is running on port ${port}`);
+  });
+}
+
+
+
+
+
+
