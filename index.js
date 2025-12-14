@@ -1,3 +1,5 @@
+//just use
+module.exports = app;
 const express = require('express')
 const cors = require('cors')
 const app = express();
@@ -9,10 +11,22 @@ require('dotenv').config()
 
 //middleware
 //app.use(cors());
+
+
+// app.use(cors({
+//   origin: 'http://localhost:5173', // or whatever your frontend port is
+//   credentials: true
+// }));
+
+//just apply
 app.use(cors({
-  origin: 'http://localhost:5173', // or whatever your frontend port is
+  origin: [
+    'http://localhost:5173',
+    'https://career-code-server-green-pi.vercel.app'
+  ],
   credentials: true
 }));
+
 app.use(express.json());
 app.use(cookieParser());
 
@@ -282,6 +296,7 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
-app.listen(port, () => {
-  console.log(`Career Code Server is running on port ${port}`)
-})
+//just hide for few times.
+// app.listen(port, () => {
+//   console.log(`Career Code Server is running on port ${port}`)
+// })
