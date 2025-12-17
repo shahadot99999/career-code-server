@@ -4,6 +4,9 @@ const cors = require('cors')
 const app = express();
 const jwt = require('jsonwebtoken');
 const cookieParser= require('cookie-parser');
+
+
+
 const port = process.env.PORT || 3000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
@@ -32,7 +35,7 @@ app.use(cookieParser());
 
 var admin = require("firebase-admin");
 
-var serviceAccount = require("./firebase-admin-key.json");
+var serviceAccount = require("../firebase-admin-key.json");
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
