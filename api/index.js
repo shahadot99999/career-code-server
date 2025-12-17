@@ -204,21 +204,26 @@ async function run() {
     // })
     // Add this route - it should go with your other job routes
     app.get('/jobs', async (req, res) => {
-      try {
-        const email = req.query.email;
-        const query = {};
+      // Temporary: Return dummy data to test if route works
+      res.json([
+        { _id: "test1", title: "Test Job 1", company: "Test Company" },
+        { _id: "test2", title: "Test Job 2", company: "Test Company" }
+      ]);
+      // try {
+      //   const email = req.query.email;
+      //   const query = {};
 
-        if (email) {
-          query.hr_email = email;
-        }
+      //   if (email) {
+      //     query.hr_email = email;
+      //   }
 
-        const cursor = jobsCollection.find(query);
-        const result = await cursor.toArray();
-        res.send(result);
-      } catch (error) {
-        console.error('Error fetching jobs:', error);
-        res.status(500).send({ error: 'Failed to fetch jobs' });
-      }
+      //   const cursor = jobsCollection.find(query);
+      //   const result = await cursor.toArray();
+      //   res.send(result);
+      // } catch (error) {
+      //   console.error('Error fetching jobs:', error);
+      //   res.status(500).send({ error: 'Failed to fetch jobs' });
+      // }
     });
 
     app.get('/jobs/applications', verifyFirebaseToken, verifyTokenEmail, async(req, res)=>{
