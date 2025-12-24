@@ -384,11 +384,10 @@
 //   });
 // }
 
-// ====== MINIMAL WORKING SERVER ======
+// ====== MINIMAL SERVER WITH HARDCODED CREDENTIALS ======
 const express = require('express');
 const cors = require('cors');
 const { MongoClient } = require('mongodb');
-require('dotenv').config();
 
 const app = express();
 
@@ -402,94 +401,118 @@ app.use(express.json());
 // Global variable for MongoDB connection
 let db = null;
 
-// ====== CONNECT TO MONGODB ONCE ======
+// ====== CONNECT TO MONGODB ======
 async function connectDB() {
   try {
-    console.log('🟢 Connecting to MongoDB...');
+    console.log('🟢 ATTEMPTING MONGODB CONNECTION...');
     
-    // Use your EXACT credentials
-    const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.wr5mswb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+    // ⚠️ TEMPORARY: Use your ACTUAL credentials here
+    const uri = `mongodb+srv://career_Admin:cIM2cRbl1Gu0TmpV@cluster0.wr5mswb.mongodb.net/careerCode?retryWrites=true&w=majority&appName=Cluster0`;
     
-    const client = new MongoClient(uri);
-    await client.connect();
+    console.log('Connecting with URI:', uri.replace(/cIM2cRbl1Gu0TmpV/, '*****'));
     
-    db = client.db('careerCode');
-    console.log('✅ MongoDB Connected Successfully!');
-    
-    // Keep connection alive
-    setInterval(async () => {
-      try {
-        await db.command({ ping: 1 });
-      } catch (err) {
-        console.log('Ping failed, reconnecting...');
-        db = null;
-        await connectDB();
-      }
-    }, 30000);
-    
-  } catch (error) {
-    console.error('❌ MongoDB Connection Failed:', error.message);
-    console.error('Error details:', {
-      name: error.name,
-      code: error.code,
-      message: error.message
+    const client = new MongoClient(uri, {
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
     });
     
-    // Retry after 5 seconds
-    setTimeout(connectDB, 5000);
+    await client.connect();
+    console.log('✅ MONGODB CONNECTED SUCCESSFULLY!');
+    
+    db = client.db('careerCode');
+    
+    // Test the connection
+    const test = await db.collection('jobs').countDocuments();
+    console.log(`✅ CONNECTION TESTED: Found ${test} jobs in database`);
+    
+  } catch (error) {
+    console.error('❌ MONGODB CONNECTION FAILED!');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error code:', error.code);
+    
+    // Detailed error analysis
+    if (error.name === 'MongoServerError') {
+      console.error('MongoDB Server Error - Check credentials');
+    } else if (error.name === 'MongoNetworkError') {
+      console.error('Network Error - Check IP whitelist in MongoDB Atlas');
+      console.error('Go to MongoDB Atlas → Network Access → Add 0.0.0.0/0');
+    } else if (error.message.includes('authentication failed')) {
+      console.error('Authentication Failed - Wrong username/password');
+      console.error('Check MongoDB Atlas → Database Access');
+    }
   }
 }
 
-// Start connection
+// Start connection immediately
 connectDB();
 
-// ====== SIMPLE ROUTES ======
+// ====== ROUTES ======
 
-// Health check
+// Enhanced health check
 app.get('/health', (req, res) => {
-  res.json({
+  const status = {
     status: 'ok',
     mongo: db ? 'connected' : 'disconnected',
-    time: new Date().toISOString()
+    time: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    instructions: db ? null : 'Check Vercel Runtime Logs for MongoDB error'
+  };
+  res.json(status);
+});
+
+// Debug endpoint to see what's happening
+app.get('/debug', (req, res) => {
+  console.log('📥 /debug endpoint called');
+  res.json({
+    server: 'running',
+    mongo: db ? 'connected' : 'NOT CONNECTED',
+    connectionAttempted: true,
+    checkThese: [
+      '1. MongoDB Atlas Network Access → Add 0.0.0.0/0',
+      '2. MongoDB Atlas Database Access → Verify career_Admin user',
+      '3. Check Vercel Runtime Logs for error details'
+    ]
   });
 });
 
-// Get all jobs
+// Get jobs (with better error handling)
 app.get('/jobs', async (req, res) => {
+  console.log('📥 /jobs endpoint called');
+  
+  if (!db) {
+    console.log('❌ Database not available for /jobs request');
+    return res.status(503).json({
+      error: 'Database not connected',
+      message: 'MongoDB connection failed. Checking logs...',
+      timestamp: new Date().toISOString()
+    });
+  }
+  
   try {
-    if (!db) {
-      return res.status(503).json({
-        error: 'Database initializing',
-        message: 'Please try again in a few seconds'
-      });
-    }
-    
     const email = req.query.email;
     const query = email ? { hr_email: email } : {};
     
     const jobs = await db.collection('jobs').find(query).toArray();
+    console.log(`✅ Found ${jobs.length} jobs`);
+    
     res.json(jobs);
     
   } catch (error) {
-    console.error('Jobs route error:', error);
+    console.error('Database query error:', error);
     res.status(500).json({
-      error: 'Database error',
+      error: 'Query failed',
       details: error.message
     });
   }
 });
 
-// Test route
-app.get('/test', (req, res) => {
-  res.json({ message: 'Server is working!' });
-});
-
 // Root
 app.get('/', (req, res) => {
-  res.send('Career Code Server - Minimal Version');
+  res.send('Career Code Server - Testing MongoDB Connection');
 });
 
-// ====== VERCEL REQUIREMENTS ======
+// ====== VERCEL EXPORT ======
 module.exports = app;
 
 // Local development
@@ -499,12 +522,3 @@ if (require.main === module) {
     console.log(`🚀 Server running on port ${PORT}`);
   });
 }
-
-
-
-
-
-
-
-
-
