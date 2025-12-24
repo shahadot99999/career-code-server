@@ -384,7 +384,7 @@
 //   });
 // }
 
-// === STEP 1: TESTING MONGODB CONNECTION ===
+// === COMPLETE DEBUG VERSION - API/INDEX.JS ===
 console.log("🟢 1. SERVER STARTING - Loading imports...");
 
 const express = require('express');
@@ -399,18 +399,16 @@ const port = process.env.PORT || 3000;
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config();
 
-console.log("🟢 3. MongoDB imported");
-console.log("🟢 4. Checking environment variables...");
-
-// Check if MongoDB env vars exist
-if (!process.env.DB_USER || !process.env.DB_PASS) {
-  console.warn("⚠️ WARNING: DB_USER or DB_PASS not set in environment");
-} else {
-  console.log("✅ MongoDB env vars found");
-}
+// ====== DEBUG: CHECK ENVIRONMENT VARIABLES ======
+console.log("🟢 3. DEBUG: Checking environment variables...");
+console.log("DB_USER exists:", !!process.env.DB_USER);
+console.log("DB_USER length:", process.env.DB_USER?.length);
+console.log("DB_USER value (quoted):", `"${process.env.DB_USER}"`);
+console.log("DB_PASS exists:", !!process.env.DB_PASS);
+console.log("DB_PASS length:", process.env.DB_PASS?.length);
 
 // ====== MIDDLEWARE ======
-console.log("🟢 5. Setting up middleware...");
+console.log("🟢 4. Setting up middleware...");
 
 app.use(cors({
   origin: ['http://localhost:5173', 'https://career-code-client.vercel.app'],
@@ -420,118 +418,214 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-console.log("🟢 6. Middleware setup complete");
+console.log("🟢 5. Middleware setup complete");
 
-// ====== BASIC ROUTES (DEFINED BEFORE MONGODB) ======
-console.log("🟢 7. Defining basic routes FIRST...");
+// ====== BASIC ROUTES ======
+console.log("🟢 6. Defining basic routes...");
 
 app.get('/', (req, res) => {
-  res.send('Career Code is Cooking - MONGODB TEST');
+  console.log("📥 / route called");
+  res.send('Career Code is Cooking - MONGODB DEBUG');
 });
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', time: new Date().toISOString() });
+  console.log("📥 /health route called");
+  res.json({ 
+    status: 'ok', 
+    time: new Date().toISOString(),
+    dbConnected: !!global.dbClient
+  });
 });
 
 app.get('/test', (req, res) => {
+  console.log("📥 /test route called");
   res.json({ message: 'Test route works!' });
 });
 
-// TEMPORARY: Keep dummy /jobs route for now
+// Keep dummy /jobs route
 app.get('/jobs', (req, res) => {
-  console.log("📥 /jobs route called");
+  console.log("📥 /jobs route called (dummy)");
   res.json([{ _id: "temp", title: "Temporary Job" }]);
 });
 
-console.log("🟢 8. All basic routes defined");
-
-// ====== MONGODB CONNECTION ======
-console.log("🟢 9. Setting up MongoDB connection...");
-
-let jobsCollection;
-let applicationsCollection;
-
-// Define the REAL jobs route that uses MongoDB
+// MongoDB test route
 app.get('/real-jobs', async (req, res) => {
   console.log("📥 /real-jobs route called");
+  
+  if (!global.jobsCollection) {
+    console.log("❌ Database not connected for /real-jobs");
+    return res.status(503).json({ 
+      error: 'Database not connected',
+      message: 'MongoDB connection failed. Check server logs.'
+    });
+  }
+  
   try {
-    if (!jobsCollection) {
-      return res.status(503).json({ error: 'Database not connected' });
-    }
-    
+    console.log("Querying MongoDB...");
     const email = req.query.email;
     const query = {};
     if (email) {
       query.hr_email = email;
     }
     
-    console.log("Querying MongoDB...");
-    const cursor = jobsCollection.find(query);
+    const cursor = global.jobsCollection.find(query);
     const result = await cursor.toArray();
-    console.log(`Found ${result.length} jobs`);
+    console.log(`✅ Found ${result.length} jobs`);
     
     res.json(result);
   } catch (error) {
     console.error("MongoDB query error:", error);
-    res.status(500).json({ error: 'Database error', details: error.message });
+    res.status(500).json({ 
+      error: 'Database error', 
+      details: error.message 
+    });
   }
 });
 
+console.log("🟢 7. All routes defined");
+
+// ====== MONGODB CONNECTION ======
+console.log("🟢 8. Setting up MongoDB connection...");
+
+let jobsCollection;
+let applicationsCollection;
+
 async function run() {
   try {
-    console.log("🟢 10. Connecting to MongoDB...");
+    console.log("🟢 9. Connecting to MongoDB...");
     
-    const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.wr5mswb.mongodb.net/?appName=Cluster0`;
-    console.log("MongoDB URI configured");
+    // Clean and check environment variables
+    const dbUser = process.env.DB_USER?.trim();
+    const dbPass = process.env.DB_PASS?.trim();
     
-    const client = new MongoClient(uri, {
-      serverApi: {
-        version: ServerApiVersion.v1,
-        strict: true,
-        deprecationErrors: true,
-      }
-    });
+    console.log("Cleaned DB_USER:", `"${dbUser}"`);
+    console.log("Cleaned DB_PASS length:", dbPass?.length);
     
-    await client.connect();
-    console.log("✅ MongoDB connected successfully!");
+    if (!dbUser || !dbPass) {
+      console.error("❌ ERROR: DB_USER or DB_PASS is empty!");
+      console.error("DB_USER empty:", !dbUser);
+      console.error("DB_PASS empty:", !dbPass);
+      return;
+    }
     
-    jobsCollection = client.db('careerCode').collection('jobs');
-    applicationsCollection = client.db('careerCode').collection('applications');
+    // Try different URI formats
+    const uri1 = `mongodb+srv://${dbUser}:${dbPass}@cluster0.wr5mswb.mongodb.net/careerCode?retryWrites=true&w=majority&appName=Cluster0`;
+    const uri2 = `mongodb+srv://${dbUser}:${dbPass}@cluster0.wr5mswb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
+    
+    console.log("Trying URI 1 (with database name)...");
+    console.log("URI (hidden):", `mongodb+srv://${dbUser}:*****@cluster0.wr5mswb.mongodb.net/careerCode?...`);
+    
+    let client;
+    
+    try {
+      client = new MongoClient(uri1, {
+        serverApi: {
+          version: ServerApiVersion.v1,
+          strict: true,
+          deprecationErrors: true,
+        },
+        serverSelectionTimeoutMS: 10000,
+        connectTimeoutMS: 10000,
+      });
+      
+      await client.connect();
+      console.log("✅ MongoDB connected successfully with URI 1!");
+    } catch (error1) {
+      console.error("❌ URI 1 failed:", error1.message);
+      console.log("Trying URI 2 (without database name)...");
+      
+      client = new MongoClient(uri2, {
+        serverApi: {
+          version: ServerApiVersion.v1,
+          strict: true,
+          deprecationErrors: true,
+        },
+        serverSelectionTimeoutMS: 10000,
+        connectTimeoutMS: 10000,
+      });
+      
+      await client.connect();
+      console.log("✅ MongoDB connected successfully with URI 2!");
+    }
+    
+    // Test the connection
+    await client.db().admin().command({ ping: 1 });
+    console.log("✅ MongoDB ping successful!");
+    
+    // Get collections
+    global.jobsCollection = client.db('careerCode').collection('jobs');
+    global.applicationsCollection = client.db('careerCode').collection('applications');
+    
     console.log("✅ Collections obtained");
     
     // Test query
-    const testCount = await jobsCollection.countDocuments();
+    const testCount = await global.jobsCollection.countDocuments();
     console.log(`✅ Test query successful. Total jobs in DB: ${testCount}`);
     
+    console.log("✅ MongoDB setup complete!");
+    
   } catch (error) {
-    console.error("❌ MongoDB connection failed:", error.message);
-    console.error("Full error:", error);
+    console.error("❌ MongoDB connection failed completely!");
+    console.error("Error name:", error.name);
+    console.error("Error message:", error.message);
+    console.error("Error code:", error.code);
+    
+    if (error.name === 'MongoParseError') {
+      console.error("URI parsing error - check username/password format");
+    } else if (error.name === 'MongoNetworkError') {
+      console.error("Network error - check MongoDB Atlas IP whitelist");
+      console.error("Add 0.0.0.0/0 to MongoDB Atlas Network Access");
+    } else if (error.code === 'ENOTFOUND') {
+      console.error("DNS error - cluster0.wr5mswb.mongodb.net not found");
+    } else if (error.message.includes('Authentication failed')) {
+      console.error("Authentication failed - check DB_USER and DB_PASS");
+      console.error("Verify in MongoDB Atlas → Database Access");
+    }
   }
 }
 
-// Start MongoDB connection but don't block server startup
+// Start MongoDB connection
 run().catch(err => {
   console.error("MongoDB run() failed:", err);
 });
 
-console.log("🟢 11. MongoDB setup initiated (async)");
+console.log("🟢 10. MongoDB connection initiated");
 
 // ====== ERROR HANDLING ======
 app.use((req, res, next) => {
-  res.status(404).json({ error: 'Route not found', url: req.url });
+  console.log(`❌ 404: ${req.method} ${req.url}`);
+  res.status(404).json({ 
+    error: 'Route not found',
+    url: req.url,
+    availableRoutes: ['/', '/health', '/test', '/jobs', '/real-jobs']
+  });
 });
 
-console.log("🟢 12. Server setup complete");
+app.use((err, req, res, next) => {
+  console.error("❌ Server error:", err);
+  res.status(500).json({ 
+    error: 'Internal server error',
+    message: err.message 
+  });
+});
+
+console.log("🟢 11. Error handlers added");
 
 // ====== EXPORT FOR VERCEL ======
+console.log("🟢 12. Exporting app for Vercel");
 module.exports = app;
 
-// Local development
+// For local development only
 if (require.main === module) {
   app.listen(port, () => {
     console.log(`🚀 Server running on port ${port}`);
+    console.log(`📋 Test endpoints:`);
+    console.log(`   http://localhost:${port}/real-jobs`);
+    console.log(`   http://localhost:${port}/health`);
   });
 }
+
+console.log("🟢 13. File execution complete");
 
 
 
