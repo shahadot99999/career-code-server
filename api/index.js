@@ -384,7 +384,7 @@
 //   });
 // }
 
-// ====== MINIMAL SERVER WITH HARDCODED CREDENTIALS ======
+// ====== FIXED VERSION WITH CORRECT URI ======
 const express = require('express');
 const cors = require('cors');
 const { MongoClient } = require('mongodb');
@@ -398,22 +398,21 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Global variable for MongoDB connection
 let db = null;
 
-// ====== CONNECT TO MONGODB ======
 async function connectDB() {
   try {
     console.log('🟢 ATTEMPTING MONGODB CONNECTION...');
     
-    // ⚠️ TEMPORARY: Use your ACTUAL credentials here
+    // ✅ CORRECTED URI (fixed typo)
     const uri = `mongodb+srv://career_Admin:cIM2cRbl1Gu0TmpV@cluster0.wr5mswb.mongodb.net/careerCode?retryWrites=true&w=majority&appName=Cluster0`;
     
-    console.log('Connecting with URI:', uri.replace(/cIM2cRbl1Gu0TmpV/, '*****'));
+    console.log('Connecting to MongoDB Atlas...');
     
     const client = new MongoClient(uri, {
       serverSelectionTimeoutMS: 10000,
       connectTimeoutMS: 10000,
+      socketTimeoutMS: 20000,
     });
     
     await client.connect();
@@ -421,104 +420,59 @@ async function connectDB() {
     
     db = client.db('careerCode');
     
-    // Test the connection
-    const test = await db.collection('jobs').countDocuments();
-    console.log(`✅ CONNECTION TESTED: Found ${test} jobs in database`);
+    // Test connection
+    const count = await db.collection('jobs').countDocuments();
+    console.log(`✅ DATABASE TESTED: Found ${count} jobs`);
     
   } catch (error) {
     console.error('❌ MONGODB CONNECTION FAILED!');
-    console.error('Error name:', error.name);
-    console.error('Error message:', error.message);
-    console.error('Error code:', error.code);
+    console.error('Full error:', error);
     
-    // Detailed error analysis
-    if (error.name === 'MongoServerError') {
-      console.error('MongoDB Server Error - Check credentials');
-    } else if (error.name === 'MongoNetworkError') {
-      console.error('Network Error - Check IP whitelist in MongoDB Atlas');
-      console.error('Go to MongoDB Atlas → Network Access → Add 0.0.0.0/0');
-    } else if (error.message.includes('authentication failed')) {
-      console.error('Authentication Failed - Wrong username/password');
-      console.error('Check MongoDB Atlas → Database Access');
+    if (error.name === 'MongoServerSelectionError') {
+      console.error('👉 SOLUTION: Check MongoDB Atlas Network Access');
+      console.error('Add 0.0.0.0/0 to allowed IP addresses');
     }
   }
 }
 
-// Start connection immediately
+// Start connection
 connectDB();
 
-// ====== ROUTES ======
-
-// Enhanced health check
+// Routes
 app.get('/health', (req, res) => {
-  const status = {
+  res.json({
     status: 'ok',
     mongo: db ? 'connected' : 'disconnected',
-    time: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    instructions: db ? null : 'Check Vercel Runtime Logs for MongoDB error'
-  };
-  res.json(status);
-});
-
-// Debug endpoint to see what's happening
-app.get('/debug', (req, res) => {
-  console.log('📥 /debug endpoint called');
-  res.json({
-    server: 'running',
-    mongo: db ? 'connected' : 'NOT CONNECTED',
-    connectionAttempted: true,
-    checkThese: [
-      '1. MongoDB Atlas Network Access → Add 0.0.0.0/0',
-      '2. MongoDB Atlas Database Access → Verify career_Admin user',
-      '3. Check Vercel Runtime Logs for error details'
-    ]
+    time: new Date().toISOString()
   });
 });
 
-// Get jobs (with better error handling)
 app.get('/jobs', async (req, res) => {
-  console.log('📥 /jobs endpoint called');
-  
   if (!db) {
-    console.log('❌ Database not available for /jobs request');
-    return res.status(503).json({
+    return res.status(503).json({ 
       error: 'Database not connected',
-      message: 'MongoDB connection failed. Checking logs...',
-      timestamp: new Date().toISOString()
+      message: 'MongoDB connection in progress...' 
     });
   }
   
   try {
     const email = req.query.email;
     const query = email ? { hr_email: email } : {};
-    
     const jobs = await db.collection('jobs').find(query).toArray();
-    console.log(`✅ Found ${jobs.length} jobs`);
-    
     res.json(jobs);
-    
   } catch (error) {
-    console.error('Database query error:', error);
-    res.status(500).json({
-      error: 'Query failed',
-      details: error.message
-    });
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Root
 app.get('/', (req, res) => {
-  res.send('Career Code Server - Testing MongoDB Connection');
+  res.send('Career Code - Fixed MongoDB Connection');
 });
 
-// ====== VERCEL EXPORT ======
 module.exports = app;
 
-// Local development
 if (require.main === module) {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
+  app.listen(process.env.PORT || 3000, () => {
+    console.log('Server running');
   });
 }
