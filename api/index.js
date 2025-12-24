@@ -381,3 +381,140 @@ if (require.main === module) {
   });
 }
 
+
+
+
+// const express = require('express');
+// const cors = require('cors');
+// const app = express();
+// const jwt = require('jsonwebtoken');
+// const cookieParser = require('cookie-parser');
+// const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+// require('dotenv').config();
+// const admin = require("firebase-admin");
+
+// const port = process.env.PORT || 3000;
+
+// /* ===================== MIDDLEWARE ===================== */
+
+// app.use(cors({
+//   origin: [
+//     'http://localhost:5173',
+//     'https://career-code-client.vercel.app'
+//   ],
+//   credentials: true
+// }));
+
+// app.use(express.json());
+// app.use(cookieParser());
+
+// /* ===================== FIREBASE ===================== */
+
+// let serviceAccount;
+
+// if (process.env.FIREBASE_PRIVATE_KEY) {
+//   serviceAccount = {
+//     project_id: process.env.FIREBASE_PROJECT_ID,
+//     private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+//     client_email: process.env.FIREBASE_CLIENT_EMAIL
+//   };
+// } else {
+//   try {
+//     serviceAccount = require("../firebase-admin-key.json");
+//   } catch {
+//     serviceAccount = null;
+//   }
+// }
+
+// if (!admin.apps.length && serviceAccount) {
+//   admin.initializeApp({
+//     credential: admin.credential.cert(serviceAccount)
+//   });
+// }
+
+// /* ===================== AUTH ===================== */
+
+// const verifyFirebaseToken = async (req, res, next) => {
+//   try {
+//     const authHeader = req.headers.authorization;
+//     if (!authHeader || !authHeader.startsWith("Bearer")) {
+//       return res.status(401).send({ message: "unauthorized" });
+//     }
+//     const token = authHeader.split(" ")[1];
+//     const decoded = await admin.auth().verifyIdToken(token);
+//     req.decoded = decoded;
+//     next();
+//   } catch {
+//     res.status(401).send({ message: "unauthorized" });
+//   }
+// };
+
+// const verifyTokenEmail = (req, res, next) => {
+//   if (req.query.email !== req.decoded.email) {
+//     return res.status(403).send({ message: "forbidden" });
+//   }
+//   next();
+// };
+
+// /* ===================== MONGODB (Vercel Safe) ===================== */
+
+// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.wr5mswb.mongodb.net/?retryWrites=true&w=majority`;
+
+// let cachedClient = null;
+
+// async function connectDB() {
+//   if (cachedClient) return cachedClient;
+
+//   const client = new MongoClient(uri, {
+//     serverApi: {
+//       version: ServerApiVersion.v1,
+//       strict: true,
+//       deprecationErrors: true
+//     }
+//   });
+
+//   await client.connect();
+//   cachedClient = client;
+//   return client;
+// }
+
+// /* ===================== ROUTES ===================== */
+
+// app.get("/", (req, res) => {
+//   res.send("Career Code is Cooking");
+// });
+
+// app.get("/health", (req, res) => {
+//   res.json({ status: "ok", time: new Date().toISOString() });
+// });
+
+// app.get("/jobs", async (req, res) => {
+//   try {
+//     const client = await connectDB();
+//     const jobs = client.db("careerCode").collection("jobs");
+//     const query = req.query.email ? { hr_email: req.query.email } : {};
+//     const result = await jobs.find(query).toArray();
+//     res.send(result);
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).send({ message: "Jobs failed" });
+//   }
+// });
+
+// app.get("/jobs/:id", async (req, res) => {
+//   const client = await connectDB();
+//   const jobs = client.db("careerCode").collection("jobs");
+//   const result = await jobs.findOne({ _id: new ObjectId(req.params.id) });
+//   res.send(result);
+// });
+
+// /* ===================== EXPORT FOR VERCEL ===================== */
+
+// module.exports = app;
+
+// /* ===================== LOCAL SERVER ===================== */
+// if (!process.env.VERCEL) {
+//   app.listen(port, () => {
+//     console.log(`Local server running on http://localhost:${port}`);
+//   });
+// }
