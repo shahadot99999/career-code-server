@@ -384,364 +384,92 @@
 
 
 
+// api/index.js - SIMPLIFIED WORKING VERSION
 const express = require('express')
 const cors = require('cors')
-const app = express();
-const jwt = require('jsonwebtoken');
-const cookieParser = require('cookie-parser');
+const app = express()
 
-const port = process.env.PORT || 3000;
-const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
-require('dotenv').config()
-
-// Middleware - Update CORS for Vercel
+// Basic middleware
 app.use(cors({
-  origin: [
-    'http://localhost:5173',
-    'https://career-code-client.vercel.app',
-    'https://career-code-client.vercel.app/',
-    // Add other origins as needed
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
-}));
+  origin: ['http://localhost:5173', 'https://career-code-client.vercel.app'],
+  credentials: true
+}))
+app.use(express.json())
 
-app.use(express.json());
-app.use(cookieParser());
+// IMPORTANT: Remove Firebase and complex auth for now
+// We'll get basic routes working first
 
-// Firebase Admin SDK initialization
-let admin;
-try {
-  admin = require("firebase-admin");
-  
-  // For Vercel - use environment variables
-  if (process.env.FIREBASE_PRIVATE_KEY) {
-    console.log("Using Firebase environment variables for Vercel");
-    
-    const serviceAccount = {
-      type: process.env.FIREBASE_TYPE || "service_account",
-      project_id: process.env.FIREBASE_PROJECT_ID,
-      private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
-      private_key: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-      client_email: process.env.FIREBASE_CLIENT_EMAIL,
-      client_id: process.env.FIREBASE_CLIENT_ID,
-      auth_uri: process.env.FIREBASE_AUTH_URI || "https://accounts.google.com/o/oauth2/auth",
-      token_uri: process.env.FIREBASE_TOKEN_URI || "https://oauth2.googleapis.com/token",
-      auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_CERT_URL || "https://www.googleapis.com/oauth2/v1/certs",
-      client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL,
-      universe_domain: process.env.FIREBASE_UNIVERSE_DOMAIN || "googleapis.com"
-    };
-
-    // Check if all required fields are present
-    if (serviceAccount.private_key && serviceAccount.client_email) {
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount)
-      });
-      console.log("Firebase Admin SDK initialized successfully on Vercel");
-    } else {
-      console.warn("Firebase Admin SDK: Missing required environment variables");
-    }
-  }
-} catch (error) {
-  console.warn("Firebase Admin SDK not available:", error.message);
-}
-
-const logger = (req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-  next();
-}
-
-const verifyToken = (req, res, next) => {
-  const token = req?.cookies?.token;
-  
-  if(!token){
-    return res.status(401).json({message: 'unauthorized access - no token'})
-  }
-
-  jwt.verify(token, process.env.JWT_ACCESS_SECRET, (err, decoded) => {
-    if(err){
-      return res.status(401).json({message: 'unauthorized access - invalid token'})
-    }
-    req.decoded = decoded;
-    next();
-  })
-}
-
-const verifyFirebaseToken = async(req, res, next) => {
-  if (!admin) {
-    return res.status(500).json({ message: 'Firebase Admin SDK not initialized' });
-  }
-  
-  const authHeader = req.headers?.authorization;
-  if(!authHeader || !authHeader.startsWith('Bearer ')){
-    return res.status(401).json({message: 'unauthorized access - no bearer token'})
-  }
-  
-  const token = authHeader.split(' ')[1];
-  
-  try{
-    const decoded = await admin.auth().verifyIdToken(token);
-    req.decoded = decoded;
-    next();
-  }
-  catch(error){
-    console.error('Firebase token verification error:', error.message);
-    return res.status(401).json({ message: 'unauthorized access - invalid token' })
-  }
-}
-
-const verifyTokenEmail = (req, res, next) => {
-  if(!req.decoded || !req.decoded.email){
-    return res.status(401).json({message: 'No email in decoded token'})
-  }
-  
-  if(req.query.email !== req.decoded.email){
-    return res.status(403).json({message: 'forbidden access - email mismatch'})
-  }
-  next();
-}
-
-// MongoDB Connection
-let client;
-let isConnected = false;
-
-async function connectToMongoDB() {
-  if (isConnected && client) {
-    return client;
-  }
-  
-  const uri = process.env.MONGODB_URI || `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.wr5mswb.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
-  
-  try {
-    client = new MongoClient(uri, {
-      serverApi: {
-        version: ServerApiVersion.v1,
-        strict: true,
-        deprecationErrors: true,
-      }
-    });
-    
-    await client.connect();
-    isConnected = true;
-    console.log("Successfully connected to MongoDB!");
-    return client;
-  } catch (error) {
-    console.error("MongoDB connection error:", error);
-    isConnected = false;
-    throw error;
-  }
-}
-
-// Initialize MongoDB connection
-let db;
-let jobsCollection;
-let applicationsCollection;
-
-async function initializeDB() {
-  try {
-    const mongoClient = await connectToMongoDB();
-    db = mongoClient.db('careerCode');
-    jobsCollection = db.collection('jobs');
-    applicationsCollection = db.collection('applications');
-    console.log("Database collections initialized");
-  } catch (error) {
-    console.error("Failed to initialize database:", error);
-  }
-}
-
-// Initialize database on startup
-initializeDB().catch(console.error);
-
-// Routes
+// SIMPLE TEST ROUTES
 app.get('/', (req, res) => {
   res.json({ 
-    message: 'Career Code Server is Running',
+    message: 'Career Code Server is RUNNING!',
     status: 'active',
     timestamp: new Date().toISOString()
-  });
-});
+  })
+})
 
-// Health check route
-app.get('/health', async (req, res) => {
-  try {
-    const dbStatus = isConnected ? 'connected' : 'disconnected';
-    res.json({ 
-      status: 'ok', 
-      database: dbStatus,
-      time: new Date().toISOString(),
-      firebase: admin ? 'initialized' : 'not-initialized'
-    });
-  } catch (error) {
-    res.status(500).json({ status: 'error', error: error.message });
-  }
-});
-
-// Test route
 app.get('/test', (req, res) => {
   res.json({ 
-    message: 'Test route works!',
-    environment: process.env.NODE_ENV || 'development',
+    message: 'Test route works! ✅',
+    success: true,
+    time: new Date().toISOString()
+  })
+})
+
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    server: 'running',
+    database: 'not-connected-yet',
     timestamp: new Date().toISOString()
-  });
-});
+  })
+})
 
-// JWT Token API
-app.post('/jwt', async (req, res) => {
-  try {
-    const userData = req.body;
-    const token = jwt.sign(userData, process.env.JWT_ACCESS_SECRET, { expiresIn: '1d' });
-
-    // Set token in cookies
-    res.cookie('token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-    });
-    
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Jobs API
-app.get('/jobs', async (req, res) => {
-  try {
-    const email = req.query.email;
-    const query = {};
-
-    if (email) {
-      query.hr_email = email;
+// Simple jobs route (mock data - no database)
+app.get('/jobs', (req, res) => {
+  const mockJobs = [
+    {
+      _id: '1',
+      title: 'Full Stack Developer',
+      company: 'Tech Corp',
+      location: 'Remote'
+    },
+    {
+      _id: '2', 
+      title: 'Frontend Developer',
+      company: 'Web Solutions',
+      location: 'Dhaka'
     }
+  ]
+  
+  res.json({
+    success: true,
+    message: 'Using mock data',
+    count: mockJobs.length,
+    jobs: mockJobs
+  })
+})
 
-    const cursor = jobsCollection.find(query);
-    const result = await cursor.toArray();
-    res.json(result);
-  } catch (error) {
-    console.error('Error fetching jobs:', error);
-    res.status(500).json({ error: 'Failed to fetch jobs', details: error.message });
-  }
-});
-
-// Jobs by ID
-app.get('/jobs/:id', async (req, res) => {
-  try {
-    const id = req.params.id;
-    const query = {_id: new ObjectId(id)};
-    const result = await jobsCollection.findOne(query);
-    
-    if (!result) {
-      return res.status(404).json({ message: 'Job not found' });
-    }
-    
-    res.json(result);
-  } catch (error) {
-    console.error('Error fetching job:', error);
-    res.status(500).json({ error: 'Failed to fetch job', details: error.message });
-  }
-});
-
-// Post a new job
-app.post('/jobs', async (req, res) => {
-  try {
-    const newJob = req.body;
-    const result = await jobsCollection.insertOne(newJob);
-    res.json(result);
-  } catch (error) {
-    console.error('Error creating job:', error);
-    res.status(500).json({ error: 'Failed to create job', details: error.message });
-  }
-});
-
-// Applications API
-app.get('/applications', logger, verifyFirebaseToken, verifyTokenEmail, async (req, res) => {
-  try {
-    const email = req.query.email;    
-    const query = { applicant: email };
-    
-    const result = await applicationsCollection.find(query).toArray();
-
-    // Fetch job details for each application
-    for(const application of result){
-      try {
-        const jobId = application.jobId;
-        const jobQuery = {_id: new ObjectId(jobId)};
-        const job = await jobsCollection.findOne(jobQuery);
-        
-        if(job) {
-          application.company = job.company;
-          application.title = job.title;
-          application.company_logo = job.company_logo;
-        }
-      } catch (jobError) {
-        console.error(`Error fetching job ${application.jobId}:`, jobError);
-      }
-    }
-    
-    res.json(result);
-  } catch (error) {
-    console.error('Error fetching applications:', error);
-    res.status(500).json({ error: 'Failed to fetch applications', details: error.message });
-  }
-});
-
-// Post application
-app.post('/applications', async (req, res) => {
-  try {
-    const application = req.body;
-    const result = await applicationsCollection.insertOne(application);
-    res.json(result);
-  } catch (error) {
-    console.error('Error creating application:', error);
-    res.status(500).json({ error: 'Failed to create application', details: error.message });
-  }
-});
-
-// Update application status
-app.patch('/applications/:id', async (req, res) => {
-  try {
-    const id = req.params.id;
-    const filter = {_id: new ObjectId(id)};
-    const updatedDoc = {
-      $set: { status: req.body.status }
-    };
-    const result = await applicationsCollection.updateOne(filter, updatedDoc);
-    res.json(result);
-  } catch (error) {
-    console.error('Error updating application:', error);
-    res.status(500).json({ error: 'Failed to update application', details: error.message });
-  }
-});
-
-// Error handling middleware
+// Error handling
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({
-    error: 'Internal server error',
-    message: err.message
-  });
-});
+  console.error('Error:', err)
+  res.status(500).json({ error: 'Server error', details: err.message })
+})
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({
-    error: 'Not Found',
-    message: `Route ${req.method} ${req.url} not found`
-  });
-});
+  res.status(404).json({ 
+    error: 'Route not found',
+    path: req.path,
+    method: req.method 
+  })
+})
 
-// For Vercel deployment
-module.exports = app;
+// Export for Vercel
+module.exports = app
 
-// For local development
-if (require.main === module) {
-  const PORT = process.env.PORT || 3000;
-  app.listen(PORT, () => {
-    console.log(`Career Code Server is running on port ${PORT}`);
-    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  });
-}
+
+
 
 
 
