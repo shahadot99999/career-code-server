@@ -65,7 +65,7 @@ if (process.env.FIREBASE_PRIVATE_KEY) {
 else {
   try {
     console.log("Using Firebase JSON file (local)");
-    serviceAccount = require("../firebase-admin-key.json");
+    serviceAccount = require("./firebase-admin-key.json");
   } catch (error) {
     console.warn("Firebase Admin SDK not initialized - missing credentials");
     serviceAccount = null;
